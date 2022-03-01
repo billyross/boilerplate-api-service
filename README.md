@@ -67,7 +67,6 @@ $ make run
     ├── Makefile                     # Make targets defining project tasks to run
     ├── openapi.yaml                 # OpenAPI definitions for the API
     ├── Containerfile                # aka Dockerfile for building a container image
-    ├── azure-pipelines.yaml         # CI/CD configuration
     └── README.md                    # What you are looking at
 
 > **Do not attempt to add or edit any files in the project's `pkg/api` directory**. Files in this directory are automatically generated and any changes will be wiped anytime the OpenAPI definitions are updated.
