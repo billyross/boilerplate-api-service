@@ -90,6 +90,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// HealthCheck request
+	HealthCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FindPets request
 	FindPets(ctx context.Context, params *FindPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -103,6 +106,18 @@ type ClientInterface interface {
 
 	// FindPetById request
 	FindPetById(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) HealthCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHealthCheckRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) FindPets(ctx context.Context, params *FindPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -163,6 +178,33 @@ func (c *Client) FindPetById(ctx context.Context, id int64, reqEditors ...Reques
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewHealthCheckRequest generates requests for HealthCheck
+func NewHealthCheckRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewFindPetsRequest generates requests for FindPets
@@ -379,6 +421,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// HealthCheck request
+	HealthCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthCheckResponse, error)
+
 	// FindPets request
 	FindPetsWithResponse(ctx context.Context, params *FindPetsParams, reqEditors ...RequestEditorFn) (*FindPetsResponse, error)
 
@@ -392,6 +437,28 @@ type ClientWithResponsesInterface interface {
 
 	// FindPetById request
 	FindPetByIdWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*FindPetByIdResponse, error)
+}
+
+type HealthCheckResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r HealthCheckResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r HealthCheckResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type FindPetsResponse struct {
@@ -485,6 +552,15 @@ func (r FindPetByIdResponse) StatusCode() int {
 	return 0
 }
 
+// HealthCheckWithResponse request returning *HealthCheckResponse
+func (c *ClientWithResponses) HealthCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthCheckResponse, error) {
+	rsp, err := c.HealthCheck(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseHealthCheckResponse(rsp)
+}
+
 // FindPetsWithResponse request returning *FindPetsResponse
 func (c *ClientWithResponses) FindPetsWithResponse(ctx context.Context, params *FindPetsParams, reqEditors ...RequestEditorFn) (*FindPetsResponse, error) {
 	rsp, err := c.FindPets(ctx, params, reqEditors...)
@@ -527,6 +603,32 @@ func (c *ClientWithResponses) FindPetByIdWithResponse(ctx context.Context, id in
 		return nil, err
 	}
 	return ParseFindPetByIdResponse(rsp)
+}
+
+// ParseHealthCheckResponse parses an HTTP response from a HealthCheckWithResponse call
+func ParseHealthCheckResponse(rsp *http.Response) (*HealthCheckResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &HealthCheckResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseFindPetsResponse parses an HTTP response from a FindPetsWithResponse call

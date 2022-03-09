@@ -12,6 +12,19 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 paths:
+  /:
+    get:
+      description: Returns 200 with an empty response. Used as a health check to determine if the service is up.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: service is healthy
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /pets:
     get:
       description: |

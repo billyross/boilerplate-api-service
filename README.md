@@ -81,6 +81,6 @@ Targets for various functions can be listed simply by running `make`. These task
 - `clean` - Delete build related files
 - `run` - Start the service
 - `build-image` - Build a container image using the project `Containerfile`
-- `run-container` - Compile and run the service in a container
+- `run-container` - Run the service from a previously built image
 - `generate-oapi` - Regenerate server/client code from OpenAPI definitions
 - `help` - Show available `make` targets (i.e. this list)

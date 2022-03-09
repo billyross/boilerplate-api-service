@@ -38,6 +38,10 @@ func sendPetstoreError(ctx echo.Context, code int, message string) error {
 }
 
 // Here, we implement all of the handlers in the ServerInterface
+func (p *PetStore) HealthCheck(ctx echo.Context) error {
+	return ctx.NoContent(http.StatusOK)
+}
+
 func (p *PetStore) FindPets(ctx echo.Context, params api.FindPetsParams) error {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
